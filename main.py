@@ -28,8 +28,8 @@ source = [
     {"age":25,"valid": False, "bucket":"c", "grade":1.8, "name":"ddba", "date":"01-02-1995"},
         {"age":22,"valid": True, "bucket":"b", "grade":1.3, "name":"bda", "date":"01-02-1995"},
     {"age":25,"valid": False, "bucket":"c", "grade":1.8, "name":"ddba", "date":"01-02-1995"},
-            {"age":22,"valid": True, "bucket":"b", "grade":1.3, "name":"bda", "date":"01-02-1995"},
-    {"age":25,"valid": False, "bucket":"c", "grade":1.8, "name":"ddba", "date":"01-02-1995"},
+            # {"age":22,"valid": True, "bucket":"b", "grade":1.3, "name":"bda", "date":"01-02-1995"},
+    # {"age":25,"valid": False, "bucket":"c", "grade":1.8, "name":"ddba", "date":"01-02-1995"},
 ]
 
 target = [
@@ -38,8 +38,8 @@ target = [
     {"age":21,"valid": True, "bucket":"a", "grade":1.1, "name":"babda", "date":"01-02-1995"},
         {"age":22,"valid": True, "bucket":"b", "grade":1.3, "name":"bda", "date":"01-02-1995"},
     {"age":25,"valid": False, "bucket":"c", "grade":1.8, "name":"ddba", "date":"01-02-1995"},
-            {"age":22,"valid": True, "bucket":"b", "grade":1.3, "name":"bda", "date":"01-02-1995"},
-    {"age":25,"valid": False, "bucket":"c", "grade":1.8, "name":"ddba", "date":"01-02-1995"},
+            # {"age":22,"valid": True, "bucket":"b", "grade":1.3, "name":"bda", "date":"01-02-1995"},
+    # {"age":25,"valid": False, "bucket":"c", "grade":1.8, "name":"ddba", "date":"01-02-1995"},
 ]
 
 trainer = Trainer(model, config)

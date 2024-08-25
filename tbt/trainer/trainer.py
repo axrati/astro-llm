@@ -70,7 +70,9 @@ class Trainer:
             target = target.repeat_interleave(len(target)).long()  # Adjust target size to match output
             loss = F.cross_entropy(output, target)
         elif datatype == "int" or datatype == "float":
+            target = target.unsqueeze(1).expand(-1, target.size(0))
             loss = F.mse_loss(output.squeeze(-1), target)
+            # loss = F.mse_loss(output.view_as(target), target)
         elif datatype == "category":
             output = output.view(-1, output.size(-1))
             target = target.view(-1).long()
@@ -86,6 +88,7 @@ class Trainer:
                 raise ValueError(f"Output and target batch sizes do not match: {output.size(0)} vs {target.size(0)}")
             loss = F.cross_entropy(output, target)
         elif datatype == "date":
+            target = target.unsqueeze(1).expand(target.size(0), target.size(0), target.size(1))
             loss = F.mse_loss(output, target.float())
         else:
             raise ValueError(f"Unsupported datatype: {datatype}")
