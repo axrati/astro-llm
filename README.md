@@ -51,84 +51,84 @@ Each data type in the JSON object is handled uniquely, leveraging different enco
 
 ### 1. Strings
 
-#### Encoding:
+#### `Encoding`:
 
 Strings are first tokenized into characters, which are then mapped to indices based on a predefined character set. These indices are converted into a fixed-length tensor, padded with a reserved character if necessary.
 
-#### Transformation:
+#### `Transformation`:
 
 The string tensor is passed through a linear layer that maps it into a higher-dimensional embedding suitable for the transformer.
 
-#### Output:
+#### `Output`:
 
 The transformer decodes the string by predicting the most likely character sequence. Softmax is applied to the output logits to determine the probability distribution over the possible characters, and the final string is reconstructed.
 
 ### 2. Integers
 
-#### Encoding:
+#### `Encoding`:
 
 Integers are encoded as single-element tensors, typically as floating-point numbers to ensure compatibility with the transformer’s operations.
 
-#### Transformation:
+#### `Transformation`:
 
 The integer tensor is passed through a linear layer, producing a fixed-size embedding.
 
-#### Output:
+#### `Output`:
 
 After passing through the transformer, the output is rescaled to the original integer range. The model takes the mean of the outputs and converts them back to integers.
 
 ### 3. Floats
 
-#### Encoding:
+#### `Encoding`:
 
 Floats are directly converted into single-element tensors.
 
-#### Transformation:
+#### `Transformation`:
 
 Similar to integers, the float tensor is mapped into a higher-dimensional embedding through a linear layer.
 
-#### Output:
+#### `Output`:
 
 The final output is rescaled to its original float value range using a normalization factor.
 
 ### 4. Booleans
 
-#### Encoding:
+#### `Encoding`:
 
 Booleans are encoded as single-element tensors with values of 0.0 (False) or 1.0 (True).
 
-#### Transformation:
+#### `Transformation`:
 
 These tensors are passed through a linear layer to produce embeddings.
 
-#### Output:
+#### `Output`:
 
 The transformer output is passed through a softmax function to determine the probability of True vs. False. Then confidence based decisioning happens. If entropy is below a certain threshold (indicating high confidence), we perform a majority vote across the batch using the predicted classes. If entropy is high, we average the probabilities across the batch and select the final output based on these averaged probabilities.
 
 ### 5. Dates
 
-#### Encoding:
+#### `Encoding`:
 
 Dates are encoded into a 3-element tensor representing the year, month, and day, each normalized to a specific range.
 
-#### Transformation:
+#### `Transformation`:
 
 The date tensor is passed through a linear layer that converts it into a higher-dimensional embedding.
 
-#### Output:
+#### `Output`:
 
 The model decodes the date by predicting the most likely year, month, and day. The final output is selected based on the most common predictions across the batch, ensuring robustness against noise.
 
 ### 6. Categorical Data
 
-#### Encoding:
+#### `Encoding`:
 
 Categories are mapped to integer indices based on a predefined mapping. These indices are then converted into single-element tensors.
 
-#### Transformation:
+#### `Transformation`:
 
 The categorical tensor is passed through a linear layer to produce an embedding.
 
-#### Output:
+#### `Output`:
 
 The transformer output is passed through a softmax layer to predict the most likely category. The model uses a majority vote across the batch to determine the final category output.
