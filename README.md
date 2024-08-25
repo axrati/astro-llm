@@ -26,7 +26,7 @@ model = DataTransformerModel(
     )
 
 source = [
-    {"age":21,"valid": False},
+    {"age":20,"valid": False},
     {"age":21,"valid": True},
     {"age":21,"valid": False},
 ]

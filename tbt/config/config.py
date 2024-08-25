@@ -15,7 +15,7 @@ import math
 from tbt.translator.translator import Translator
 
 class Layer:
-    def __init__(self, key, encode, decode, embedding_dim,datatype,character_set=[], max_len=0, normalizer=1.0,values=[], total_characters=0):
+    def __init__(self, key, encode, decode, embedding_dim,datatype,character_set=[], max_len=0, normalizer=1.0,values=[], total_characters=0, date_pattern=""):
         self.key = key
         self.encode = encode
         self.decode = decode
@@ -26,6 +26,7 @@ class Layer:
         self.normalizer=normalizer
         self.values=values
         self.total_characters=total_characters
+        self.date_pattern=date_pattern
 
 class ModelConfig:
     def __init__(self):
@@ -60,9 +61,9 @@ class ModelConfig:
         l = Layer(key, t.encode, t.decode, embedding_dim=1,datatype="boolean")
         self.layers[key] = l
 
-    def date(self, key: str):
+    def date(self, key: str, date_pattern:str='%m-%d-%Y'):
         t = Translator(datatype="date")
-        l = Layer(key, t.encode, t.decode, embedding_dim=3,datatype="date")  # 3 for year, month, day
+        l = Layer(key, t.encode, t.decode, embedding_dim=3,datatype="date",date_pattern=date_pattern)  # 3 for year, month, day
         self.layers[key] = l
 
     def category(self, key: str, values: list):

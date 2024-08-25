@@ -10,6 +10,7 @@ import torch.nn.functional as F
 import math
 from typing import Dict, Any, List
 from tbt.config.config import ModelConfig
+from tbt.utils.utils import stringdate
 
 class PositionalEncoding(nn.Module):
     """
@@ -33,6 +34,7 @@ class PositionalEncoding(nn.Module):
 class DataTransformerModel(nn.Module):
     def __init__(self, config:ModelConfig, d_model=64, nhead=4, num_encoder_layers=3, num_decoder_layers=3, dim_feedforward=256, dropout=0.1, max_len=5000, output_scale=1.0):
         super(DataTransformerModel, self).__init__()
+        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         self.config = config
         self.output_scale = output_scale  # Scaling factor for numeric outputs
 
@@ -54,8 +56,10 @@ class DataTransformerModel(nn.Module):
         })
 
         for key, layer in config.layers.items():
-            # Create embedding layer
+            # Create embedding linear layer
             self.embeddings[key] = nn.Linear(layer.embedding_dim, d_model)
+        # Move whole model to appropriate device
+        self.to(self.device)
 
     def _get_output_layer(self, layer, d_model):
         """ Return the appropriate output layer based on the data type. """
@@ -86,8 +90,12 @@ class DataTransformerModel(nn.Module):
         for key, layer in self.config.layers.items():
             try:
                 # Check if obj[key] is giving the right result
-                encoded_src = torch.stack([layer.encode(obj[key]).float() for obj in src])  # Shape: (batch_size, seq_len, embedding_dim)
-                encoded_tgt = torch.stack([layer.encode(obj[key]).float() for obj in tgt])
+                if layer.datatype=="date":
+                    encoded_src = torch.stack([layer.encode(obj[key], layer.date_pattern).float().to(self.device) for obj in src])  # Shape: (batch_size, seq_len, embedding_dim)
+                    encoded_tgt = torch.stack([layer.encode(obj[key], layer.date_pattern).float().to(self.device) for obj in tgt])
+                else:
+                    encoded_src = torch.stack([layer.encode(obj[key]).float().to(self.device) for obj in src])  # Shape: (batch_size, seq_len, embedding_dim)
+                    encoded_tgt = torch.stack([layer.encode(obj[key]).float().to(self.device) for obj in tgt])
             except Exception as e:
                 print(f"Error processing key: {key} with error: {str(e)}")
                 print(f"Source data for key: {src}")
@@ -129,8 +137,15 @@ class DataTransformerModel(nn.Module):
 
 
     def decode_output(self, output: Dict[str, torch.Tensor]) -> Dict[str, Any]:
-        """ Decode the model's output back to human-readable form. """
+        """ 
+        Decode the model's output back to human-readable form. 
+        Outputs 2 different versions
+        
+        "original": Represents the original data input
+        "model"   : Represents an easier to parse version based on datatype (mostly date)
+        """
         decoded_output = {}
+        original_output = {}
         for key, tensor in output.items():
             layer = self.config.layers[key]
             if layer.datatype == "string":
@@ -144,6 +159,7 @@ class DataTransformerModel(nn.Module):
                 mode_result, _ = torch.mode(predicted_indices, dim=0)
                 decoded = layer.decode(mode_result.tolist())
                 decoded_output[key] = decoded
+                original_output[key] = decoded
 
             elif layer.datatype == "boolean":
                 # print("boolean")
@@ -159,12 +175,15 @@ class DataTransformerModel(nn.Module):
                 # Determine the final result based on majority vote
                 final_result = num_true > num_false
                 decoded_output[key] = final_result  
+                original_output[key] = final_result
             elif layer.datatype == "int":
                 # print("int")
                 decoded_output[key] = layer.decode(tensor)
+                original_output[key] = layer.decode(tensor)
             elif layer.datatype == "float":
                 # print("float")
                 decoded_output[key] = layer.decode(tensor)
+                original_output[key] = layer.decode(tensor)
             elif layer.datatype == "category":
                 # print("category")
                 # Apply softmax to convert logits to probabilities
@@ -188,11 +207,15 @@ class DataTransformerModel(nn.Module):
                         right_enum_index = index
                 # print(f"Correct enum is {right_enum_index}")
                 decoded_output[key] = layer.decode(right_enum_index)  # Likelihood for each category
+                original_output[key] = layer.decode(right_enum_index)  # Likelihood for each category
             elif layer.datatype == "date":
                 decoded_output[key] = layer.decode(tensor)
+                original_output[key] = stringdate(layer.decode(tensor), layer.date_pattern)
             else:
                 print("UNCAUGHT DATATYPE")
                 decoded_output[key] = layer.decode(tensor.squeeze(0))
-        return decoded_output
+                original_output[key] = layer.decode(tensor.squeeze(0))
+
+        return {"original":original_output, "model":decoded_output}
     
     

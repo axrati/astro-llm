@@ -13,6 +13,7 @@ class Translator:
             self.encode = self.encode_int_as_float
             self.decode = self.decode_int_from_float
         elif datatype == "date":
+            # Info will contain "date_pattern"
             self.encode = self.encode_date
             self.decode = self.decode_date
         elif datatype == "string":
@@ -69,9 +70,10 @@ class Translator:
     def encode_boolean_as_float(self, value: bool) -> torch.Tensor:
         return torch.tensor([1.0 if value else 0.0], dtype=torch.float)
     
-    def encode_date(self, value: Union[str, datetime.date]) -> torch.Tensor:
+    def encode_date(self, value: Union[str, datetime.date], date_pattern:str) -> torch.Tensor:
+
         if isinstance(value, str):
-            value = datetime.datetime.strptime(value, '%m-%d-%Y').date()
+            value = datetime.datetime.strptime(value, date_pattern).date()
         year = value.year / 1000.0  # Normalize year to [-1, 1]
         month = (value.month - 1) / 11.0  # Normalize month to [0, 1]
         day = (value.day - 1) / 30.0  # Normalize day to [0, 1]
