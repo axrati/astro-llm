@@ -5,8 +5,9 @@ config = ModelConfig()
 config.int("age",50)
 config.float("grade",2)
 config.boolean("valid")
-# config.category("bucket", values=["a","b","c"])
+config.category("bucket", values=["a","b","c"])
 config.string("name",max_len=20,character_set=['a','b','c','d','e','f'])
+config.date("date")
 
 model = DataTransformerModel(
     config=config,
@@ -21,15 +22,15 @@ model = DataTransformerModel(
     )
 
 source = [
-    {"age":21,"valid": False, "bucket":"a", "grade":1.6, "name":"d"},
-    {"age":22,"valid": True, "bucket":"b", "grade":1.3, "name":"f"},
-    {"age":25,"valid": False, "bucket":"c", "grade":1.8, "name":"b"},
+    {"age":21,"valid": False, "bucket":"a", "grade":1.6, "name":"abd", "date":"01-02-1995", "bucket":"a"},
+    {"age":22,"valid": True, "bucket":"b", "grade":1.3, "name":"bda", "date":"01-02-1995", "bucket":"a"},
+    {"age":25,"valid": False, "bucket":"c", "grade":1.8, "name":"ddba", "date":"01-02-1995", "bucket":"a"},
 ]
 
 target = [
-    {"age":25,"valid": True, "bucket":"b", "grade":1.8, "name":"b"},
-    {"age":22,"valid": False, "bucket":"c", "grade":1.2, "name":"d"},
-    {"age":21,"valid": True, "bucket":"a", "grade":1.1, "name":"b"},
+    {"age":25,"valid": True, "bucket":"b", "grade":1.8, "name":"dba", "date":"01-02-1995", "bucket":"a"},
+    {"age":22,"valid": False, "bucket":"c", "grade":1.2, "name":"dddba", "date":"01-02-1995", "bucket":"a"},
+    {"age":21,"valid": True, "bucket":"a", "grade":1.1, "name":"babda", "date":"01-02-1995", "bucket":"a"},
 ]
 
 

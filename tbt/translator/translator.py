@@ -1,3 +1,4 @@
+from collections import Counter
 import torch
 from typing import Dict, Union, Literal, Any, List
 import datetime
@@ -70,8 +71,12 @@ class Translator:
     
     def encode_date(self, value: Union[str, datetime.date]) -> torch.Tensor:
         if isinstance(value, str):
-            value = datetime.datetime.strptime(value, '%Y-%m-%d').date()
-        return torch.tensor([value.year, value.month, value.day], dtype=torch.float)
+            value = datetime.datetime.strptime(value, '%m-%d-%Y').date()
+        year = value.year / 1000.0  # Normalize year to [-1, 1]
+        month = (value.month - 1) / 11.0  # Normalize month to [0, 1]
+        day = (value.day - 1) / 30.0  # Normalize day to [0, 1]
+        return torch.tensor([year, month, day], dtype=torch.float)
+
     
     def encode_category(self, value: str, category_map: Dict[str, int]) -> torch.Tensor:
         return torch.tensor([float(category_map[value])], dtype=torch.float)
@@ -105,14 +110,47 @@ class Translator:
     def decode_boolean_from_float(self, tensor: torch.Tensor) -> bool:
         return bool(torch.sigmoid(tensor).item() >= 0.5)
     
-    def decode_date(self, tensor: torch.Tensor) -> datetime.date:
-        year, month, day = int(tensor[0].item()), int(tensor[1].item()), int(tensor[2].item())
-        try:
-            return datetime.date(year, month, day)
-        except ValueError:
-            max_day = (datetime.date(year, month + 1, 1) - datetime.timedelta(days=1)).day
-            day = min(day, max_day)
-            return datetime.date(year, month, day)
+    def decode_date(self, tensor: torch.Tensor) -> str:
+        decoded_dates = []
+        
+        for batch in tensor:
+            for date_tensor in batch:
+                # Extract and denormalize each component
+                year = int(date_tensor[0].item() * 1000)  # Assuming normalization to [-1, 1] range
+                month = int((date_tensor[1].item() * 11) + 1)  # Map to [1, 12]
+                day = int((date_tensor[2].item() * 30) + 1)  # Map to [1, 31]
+
+                # Clip the month and day to ensure they are within valid ranges
+                month = max(1, min(12, month))
+                day = max(1, min(31, day))
+
+                # Construct the date string
+                # decoded_date = f"{year:04d}-{month:02d}-{day:02d}"
+                decoded_data = {"year":year,"month":month,"day":day}
+                decoded_dates.append(decoded_data)
+        result = self.pick_most_frequent_date(decoded_dates)
+        return result
+
+    def pick_most_frequent_date(self,dates: List[str]) -> str:
+        years = []
+        months = []
+        days = []
+        
+        for date in dates:
+            years.append(date['year'])
+            months.append(date['month'])
+            days.append(date['day'])
+        
+        # Get the mode for year, month, and day
+        most_common_year = Counter(years).most_common(1)[0][0]
+        most_common_month = Counter(months).most_common(1)[0][0]
+        most_common_day = Counter(days).most_common(1)[0][0]
+        
+        # Combine into the final most frequent date
+        most_frequent_date = f"Date: {most_common_month}-{most_common_day} Year: {most_common_year}"
+        return {"year":most_common_year, "month":most_common_month,"day":most_common_day}
+    
+
     
     def decode_category(self, value: int, reverse_category_map: Dict[int, str]) -> str:
         return reverse_category_map[int(value)]

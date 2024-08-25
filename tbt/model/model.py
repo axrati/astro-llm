@@ -67,7 +67,8 @@ class DataTransformerModel(nn.Module):
             return nn.Linear(d_model, 1)  # Output a single float value
         elif layer.datatype == "string":
             return nn.Linear(d_model, layer.total_characters * layer.max_len)  # Output logits for each character in the sequence
-            # return nn.Linear(d_model, layer.total_characters)  # Output logits for each max_len, representing a string
+        elif layer.datatype == "date":
+            return nn.Linear(d_model, 3)  # 3 outputs for year, month, day
         elif layer.datatype == "category":
             return nn.Linear(d_model, len(layer.values))  # Output logits for each category
         else:
@@ -179,7 +180,8 @@ class DataTransformerModel(nn.Module):
                         right_enum_index = index
                 # print(f"Correct enum is {right_enum_index}")
                 decoded_output[key] = layer.decode(right_enum_index)  # Likelihood for each category
-
+            elif layer.datatype == "date":
+                decoded_output[key] = layer.decode(tensor)
             else:
                 print("UNCAUGHT DATATYPE")
                 decoded_output[key] = layer.decode(tensor.squeeze(0))
