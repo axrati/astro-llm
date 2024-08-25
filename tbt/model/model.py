@@ -66,9 +66,10 @@ class DataTransformerModel(nn.Module):
         elif layer.datatype == "float":
             return nn.Linear(d_model, 1)  # Output a single float value
         elif layer.datatype == "string":
-            return nn.Linear(d_model, layer.max_len)  # Output logits for each max_len, representing a string
+            return nn.Linear(d_model, layer.total_characters * layer.max_len)  # Output logits for each character in the sequence
+            # return nn.Linear(d_model, layer.total_characters)  # Output logits for each max_len, representing a string
         elif layer.datatype == "category":
-            return nn.Linear(d_model, len(layer.info['values']))  # Output logits for each category
+            return nn.Linear(d_model, len(layer.values))  # Output logits for each category
         else:
             return nn.Linear(d_model, layer.embedding_dim)  # Default for other types
 
@@ -125,12 +126,16 @@ class DataTransformerModel(nn.Module):
             layer = self.config.layers[key]
             if layer.datatype == "string":
                 print("string")
-                # probabilities = F.softmax(tensor, dim=-1)
-                # indices = torch.argmax(probabilities, dim=-1).squeeze(0).tolist()
-                # decoded_strings = []
-                # for batch in indices:
-                #     decoded_string = ''.join([layer.character_set[idx] for idx in batch])
-                #     decoded_strings.append(decoded_string)
+                # Reshape for view
+                reshaped_tensor = tensor.view(tensor.size(0), layer.max_len, -1, layer.total_characters)
+                probabilities = F.softmax(reshaped_tensor, dim=-1)
+                averaged_probabilities = probabilities.mean(dim=2)
+                predicted_indices = torch.argmax(averaged_probabilities, dim=-1) # will be of shape [batch, max_len],
+                # Mode of results across the batch
+                mode_result, _ = torch.mode(predicted_indices, dim=0)
+                decoded = layer.decode(mode_result.tolist())
+                decoded_output[key] = decoded
+
             elif layer.datatype == "boolean":
                 print("boolean")
                 probabilities = F.softmax(tensor, dim=-1)
@@ -147,16 +152,34 @@ class DataTransformerModel(nn.Module):
                 decoded_output[key] = final_result  
             elif layer.datatype == "int":
                 print("int")
-                # int_value = torch.round(tensor).int().item()  # Handle scaling correctly
                 decoded_output[key] = layer.decode(tensor)
             elif layer.datatype == "float":
                 print("float")
-                # float_value = tensor.item()
                 decoded_output[key] = layer.decode(tensor)
             elif layer.datatype == "category":
                 print("category")
-                # probabilities = F.softmax(tensor, dim=-1).squeeze(0).tolist()
-                # decoded_output[key] = probabilities  # Likelihood for each category
+                # Apply softmax to convert logits to probabilities
+                probabilities = F.softmax(tensor, dim=-1)
+                # Step 2: Use argmax to select the index with the highest probability
+                selected_indices = torch.argmax(probabilities, dim=-1)
+                # Calculate the mode (most frequent value) along the column (axis=0)
+                right_enum, _ = torch.mode(selected_indices, dim=0)
+                right_enum_list = right_enum.tolist()
+                counts = {}
+                for index in right_enum_list:
+                    if index in counts:
+                        counts[index] += 1
+                    else:
+                        counts[index] = 1
+                max_count = 0
+                right_enum_index = right_enum_list[0]  
+                for index, count in counts.items():
+                    if count > max_count:
+                        max_count = count
+                        right_enum_index = index
+                # print(f"Correct enum is {right_enum_index}")
+                decoded_output[key] = layer.decode(right_enum_index)  # Likelihood for each category
+
             else:
                 print("UNCAUGHT DATATYPE")
                 decoded_output[key] = layer.decode(tensor.squeeze(0))
