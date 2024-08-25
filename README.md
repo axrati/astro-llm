@@ -1,110 +1,134 @@
-# time-based-transformers
+# ASTRO Transformers
 
-In essence, the model is predicting the next JSON object in a sequence based on both the past sequence (provided by source) and the partially known future sequence (provided by target).
+### Adaptive Structured Transformation and Representation Output (ASTRO)
 
-It uses the Transformer architecture to capture dependencies across both sequences, allowing for complex predictions that take into account long-range context and structure.
+This neural network model is a specialized data transformer designed to process JSON-like data with multiple data types, such as strings, integers, floats, dates, booleans, and categorical data. The model’s flexibility and modularity make it highly advanced, enabling it to handle diverse data types in a unified architecture while preserving the contextual relationships between data elements.
 
-# Example use
+<br></br>
 
-```python
-from tbt.model.model import DataTransformer
-from tbt.config.config import ModelConfig
+# Insights from this architecture
 
-config = ModelConfig()
-config.int("age",10)
-config.boolean("valid")
+The model leverages a single transformer network for all data types, enabling it to learn shared representations and relationships between different types of data, which is crucial for complex, structured data.
 
-model = DataTransformerModel(
-    config=config,
-    d_model=8,
-    nhead=4,
-    num_encoder_layers=3,
-    num_decoder_layers=3,
-    dim_feedforward=256,
-    dropout=.1,
-    max_len=5000
-    )
+### Dynamic Embedding Sizes:
 
-source = [
-    {"age":20,"valid": False},
-    {"age":21,"valid": True},
-    {"age":21,"valid": False},
-]
+The model uses dynamic embedding sizes tailored to each data type, ensuring that the transformer receives the most relevant information while maintaining a compact and efficient representation.
 
-target = [
-    {"age":21,"valid": True},
-    {"age":21,"valid": False},
-    {"age":21,"valid": True},
-]
+### Contextual Learning:
 
-output = model(source,target)
-predictions = model.decode_output(output)
-print(predictions)
-```
+The transformer’s self-attention mechanism allows the model to learn contextual dependencies between different fields in the JSON object, making it particularly effective in understanding the relationships between different data elements.
 
-# Definitions
+### Robust Output Decoding:
 
-### `config` (ModelConfig):
+The model employs majority voting and softmax-based decoding for robust output generation, which helps mitigate errors caused by noisy data or outliers.
 
-**Description**: This is the configuration object that defines the structure of the JSON objects being processed. It includes information about the data types, embedding dimensions, and specific processing layers for different fields in the JSON objects.
+This neural network model exemplifies an advanced approach to processing structured data by integrating specialized encoding methods for various data types with a powerful transformer architecture. Its ability to handle diverse data types within a unified framework while maintaining the contextual relationships between them makes it highly effective for tasks involving complex JSON-like data.
 
-**Role**: It tells the model how to encode, decode, and process each field in the input JSON objects.
+<br></br>
 
-_`See example for sample`_
+# Overview of the Model Architecture
 
-```python
-config = ModelConfig()
-# Register keys below
-config.string()
-config.int()
-config.boolean()
-config.float()
-config.categories()
-```
+The core architecture of the model is based on a transformer encoder-decoder framework, which is generally known for its effectiveness in handling sequence data. However, this model extends the transformer architecture to process structured data types typically found in JSON objects. The model consists of:
 
-### `d_model` (int):
+## Embedding Layers:
 
-**Description**: The dimensionality of the input and output vectors of the Transformer model. It represents the size of the hidden layers in the Transformer.
+Each data type has its own specialized encoding mechanism that translates the raw data into a vector representation (embedding) that the transformer can process. These embeddings are then passed through a shared transformer network.
 
-**Role**: Determines the width of the Transformer model. A larger d_model allows the model to capture more complex patterns, but it also increases memory usage and computation time.
+## Positional Encoding:
 
-### `nhead` (int):
+Positional encoding is added to the embeddings to retain the order of elements within the data, which is crucial for maintaining the structure and meaning of the JSON data.
 
-Description: The number of attention heads in the multi-head attention mechanism. Each attention head processes the input data differently and independently, allowing the model to focus on different parts of the input sequence.
-Role: More attention heads allow the model to learn multiple representations of the data in parallel, improving its ability to capture different types of relationships in the input.
+## Transformer Encoder and Decoder:
 
-### `num_encoder_layers` (int):
+The shared transformer model processes the embeddings through multiple layers of self-attention and feedforward networks to learn contextual relationships.
 
-**Description**: The number of layers in the Transformer encoder. The encoder processes the source sequence and encodes it into a hidden representation.
+## Output Layers:
 
-**Role**: More encoder layers allow the model to capture deeper and more complex relationships in the input sequence, but they also increase computation time and memory usage.
+Separate output layers are used for each data type, ensuring that the final predictions are tailored to the specific nature of each data type.
 
-### `num_decoder_layers` (int):
+Data Type Processing Pipeline
+Each data type in the JSON object is handled uniquely, leveraging different encoding strategies before being passed into the shared transformer network. The methodologies for each data type are outlined below:
 
-**Description**: The number of layers in the Transformer decoder. The decoder processes the target sequence and predicts the next JSON object in the sequence.
+### 1. Strings
 
-**Role**: More decoder layers allow the model to generate more accurate and context-aware predictions, at the cost of higher computation and memory requirements.
+#### Encoding:
 
-### `dim_feedforward` (int):
+Strings are first tokenized into characters, which are then mapped to indices based on a predefined character set. These indices are converted into a fixed-length tensor, padded with a reserved character if necessary.
 
-**Description**: The size of the hidden layer in the feedforward network inside each Transformer encoder/decoder layer. After the attention mechanism, data passes through this feedforward network for further processing.
+#### Transformation:
 
-**Role**: A larger dim_feedforward allows the model to learn more complex transformations, but it increases the model's size and computational load.
+The string tensor is passed through a linear layer that maps it into a higher-dimensional embedding suitable for the transformer.
 
-### `dropout` (float):
+#### Output:
 
-**Description**: The dropout rate applied to the Transformer layers. Dropout is a regularization technique used to prevent overfitting by randomly setting some layer outputs to zero during training.
+The transformer decodes the string by predicting the most likely character sequence. Softmax is applied to the output logits to determine the probability distribution over the possible characters, and the final string is reconstructed.
 
-**Role**: Higher dropout rates increase regularization, helping prevent overfitting but can slow down convergence during training.
+### 2. Integers
 
-### `max_len` (int):
+#### Encoding:
 
-**Description**: The maximum length of the input sequence that the model can handle. This determines the number of positions for which positional encodings are precomputed.
+Integers are encoded as single-element tensors, typically as floating-point numbers to ensure compatibility with the transformer’s operations.
 
-**Role**: Limits the number of JSON objects the model can process in a sequence. Increasing max_len allows the model to handle longer sequences but increases memory usage.
+#### Transformation:
 
-### `output_scale` (float):
+The integer tensor is passed through a linear layer, producing a fixed-size embedding.
 
-**Description**: A scaling factor applied to the numeric outputs of the model, particularly for fields like integers or floats. It ensures that the model's predictions match the expected scale of the data.
+#### Output:
 
-**Role**: Adjusts the range of the model's output to align with the original data range. For example, if the model is predicting large numbers, this parameter can be used to scale the output appropriately.
+After passing through the transformer, the output is rescaled to the original integer range. The model takes the mean of the outputs and converts them back to integers.
+
+### 3. Floats
+
+#### Encoding:
+
+Floats are directly converted into single-element tensors.
+
+#### Transformation:
+
+Similar to integers, the float tensor is mapped into a higher-dimensional embedding through a linear layer.
+
+#### Output:
+
+The final output is rescaled to its original float value range using a normalization factor.
+
+### 4. Booleans
+
+#### Encoding:
+
+Booleans are encoded as single-element tensors with values of 0.0 (False) or 1.0 (True).
+
+#### Transformation:
+
+These tensors are passed through a linear layer to produce embeddings.
+
+#### Output:
+
+The transformer output is passed through a softmax function to determine the probability of True vs. False. Then confidence based decisioning happens. If entropy is below a certain threshold (indicating high confidence), we perform a majority vote across the batch using the predicted classes. If entropy is high, we average the probabilities across the batch and select the final output based on these averaged probabilities.
+
+### 5. Dates
+
+#### Encoding:
+
+Dates are encoded into a 3-element tensor representing the year, month, and day, each normalized to a specific range.
+
+#### Transformation:
+
+The date tensor is passed through a linear layer that converts it into a higher-dimensional embedding.
+
+#### Output:
+
+The model decodes the date by predicting the most likely year, month, and day. The final output is selected based on the most common predictions across the batch, ensuring robustness against noise.
+
+### 6. Categorical Data
+
+#### Encoding:
+
+Categories are mapped to integer indices based on a predefined mapping. These indices are then converted into single-element tensors.
+
+#### Transformation:
+
+The categorical tensor is passed through a linear layer to produce an embedding.
+
+#### Output:
+
+The transformer output is passed through a softmax layer to predict the most likely category. The model uses a majority vote across the batch to determine the final category output.

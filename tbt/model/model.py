@@ -135,6 +135,10 @@ class DataTransformerModel(nn.Module):
 
         return results
 
+    def entropy(self, probabilities: torch.Tensor) -> torch.Tensor:
+        """ Calculate the entropy of the probability distribution. """
+        return -torch.sum(probabilities * torch.log(probabilities + 1e-9), dim=-1)
+
 
     def decode_output(self, output: Dict[str, torch.Tensor]) -> Dict[str, Any]:
         """ 
@@ -162,20 +166,24 @@ class DataTransformerModel(nn.Module):
                 original_output[key] = decoded
 
             elif layer.datatype == "boolean":
-                # print("boolean")
                 probabilities = F.softmax(tensor, dim=-1)
-                # Get the index of the maximum value for each pair (0 for False, 1 for True)
-                predicted_classes = torch.argmax(probabilities, dim=-1)
-                predicted_classes_boolean = predicted_classes.bool()
-                # Flatten the tensor to consider all predictions together
-                flattened_predictions = predicted_classes_boolean.flatten()
-                # Count the number of True and False predictions
-                num_true = torch.sum(flattened_predictions).item()
-                num_false = len(flattened_predictions) - num_true
-                # Determine the final result based on majority vote
-                final_result = num_true > num_false
-                decoded_output[key] = final_result  
-                original_output[key] = final_result
+                # Calculate entropy
+                entropy = self.entropy(probabilities)
+                # Calculate the average entropy across the batch
+                average_entropy = torch.mean(entropy).item()
+                # Define a threshold for entropy. Lower threshold means more confident predictions.
+                entropy_threshold = 0.5  # This can be tuned
+                
+                if average_entropy < entropy_threshold:
+                    # If entropy is low, rely on the highest probability
+                    predicted_classes = torch.argmax(probabilities, dim=-1)
+                    final_result = predicted_classes.bool().mean().item() >= 0.5.item()
+                else:
+                    # If entropy is high, fallback strategy (e.g., averaging the probabilities)
+                    averaged_probabilities = probabilities.mean(dim=0)
+                    final_result = averaged_probabilities[0][1] > averaged_probabilities[0][0].item()
+                decoded_output[key] = final_result.item()
+                original_output[key] = final_result.item()
             elif layer.datatype == "int":
                 # print("int")
                 decoded_output[key] = layer.decode(tensor)
