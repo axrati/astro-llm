@@ -8,7 +8,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import math
-from typing import Dict, Any
+from typing import Dict, Any, List
 from tbt.config.config import ModelConfig
 
 class PositionalEncoding(nn.Module):
@@ -74,18 +74,25 @@ class DataTransformerModel(nn.Module):
         else:
             return nn.Linear(d_model, layer.embedding_dim)  # Default for other types
 
-    def forward(self, src: Dict[str, Any], tgt: Dict[str, Any]) -> Dict[str, torch.Tensor]:
-        """ Forward pass through the model, combined embeddings for all layers.
-            Now handles an array of objects. """
+
+
+    def forward(self, src: List[Dict[str, Any]], tgt: List[Dict[str, Any]]) -> Dict[str, torch.Tensor]:
+        """ Forward pass through the model, combined embeddings for all layers. """
         
         # Initialize combined embeddings for source and target
         combined_src_embedded = None
         combined_tgt_embedded = None
 
         for key, layer in self.config.layers.items():
-            # Encode the source and target arrays
-            encoded_src = torch.stack([layer.encode(obj[key]).float() for obj in src])  # Shape: (batch_size, seq_len, embedding_dim)
-            encoded_tgt = torch.stack([layer.encode(obj[key]).float() for obj in tgt])
+            try:
+                # Check if obj[key] is giving the right result
+                encoded_src = torch.stack([layer.encode(obj[key]).float() for obj in src])  # Shape: (batch_size, seq_len, embedding_dim)
+                encoded_tgt = torch.stack([layer.encode(obj[key]).float() for obj in tgt])
+            except Exception as e:
+                print(f"Error processing key: {key} with error: {str(e)}")
+                print(f"Source data for key: {src}")
+                print(f"Target data for key: {tgt}")
+                raise e
 
             # Pass through embedding layers
             src_embedded = self.embeddings[key](encoded_src)  # Shape: (batch_size, seq_len, d_model)
@@ -120,13 +127,14 @@ class DataTransformerModel(nn.Module):
 
         return results
 
+
     def decode_output(self, output: Dict[str, torch.Tensor]) -> Dict[str, Any]:
         """ Decode the model's output back to human-readable form. """
         decoded_output = {}
         for key, tensor in output.items():
             layer = self.config.layers[key]
             if layer.datatype == "string":
-                print("string")
+                # print("string")
                 # Reshape for view
                 reshaped_tensor = tensor.view(tensor.size(0), layer.max_len, -1, layer.total_characters)
                 probabilities = F.softmax(reshaped_tensor, dim=-1)
@@ -138,7 +146,7 @@ class DataTransformerModel(nn.Module):
                 decoded_output[key] = decoded
 
             elif layer.datatype == "boolean":
-                print("boolean")
+                # print("boolean")
                 probabilities = F.softmax(tensor, dim=-1)
                 # Get the index of the maximum value for each pair (0 for False, 1 for True)
                 predicted_classes = torch.argmax(probabilities, dim=-1)
@@ -152,13 +160,13 @@ class DataTransformerModel(nn.Module):
                 final_result = num_true > num_false
                 decoded_output[key] = final_result  
             elif layer.datatype == "int":
-                print("int")
+                # print("int")
                 decoded_output[key] = layer.decode(tensor)
             elif layer.datatype == "float":
-                print("float")
+                # print("float")
                 decoded_output[key] = layer.decode(tensor)
             elif layer.datatype == "category":
-                print("category")
+                # print("category")
                 # Apply softmax to convert logits to probabilities
                 probabilities = F.softmax(tensor, dim=-1)
                 # Step 2: Use argmax to select the index with the highest probability
@@ -185,62 +193,6 @@ class DataTransformerModel(nn.Module):
             else:
                 print("UNCAUGHT DATATYPE")
                 decoded_output[key] = layer.decode(tensor.squeeze(0))
-
         return decoded_output
     
     
-    
-
-
-# # Sample Data (3 Rows)
-# sample_data = [
-#     {"name": encode_string("ABD"), "price": encode_number(1233), "active": encode_boolean(False), "date": encode_date("2023-01-15")},
-#     {"name": encode_string("XYZ"), "price": encode_number(4567), "active": encode_boolean(True), "date": encode_date("2023-05-22")},
-#     {"name": encode_string("QWE"), "price": encode_number(7890), "active": encode_boolean(False), "date": encode_date("2024-11-10")},
-# ]
-
-# # Model Initialization
-# model = DataTransformerModel()
-
-# # Training and Production Loops
-# def train(model, data, epochs=10):
-#     optimizer = torch.optim.Adam(model.parameters(), lr=0.001)
-#     criterion = nn.CrossEntropyLoss()
-    
-#     for epoch in range(epochs):
-#         for row in data:
-#             optimizer.zero_grad()
-#             src = {k: torch.stack([row[k] for _ in range(3)]) for k in row}
-#             tgt = src
-#             pred_name, pred_price, pred_active, pred_date = model(src, tgt)
-            
-#             loss_name = criterion(pred_name.view(-1, 128), src['name'].view(-1))
-#             loss_price = F.mse_loss(pred_price.view(-1), src['price'].view(-1))
-#             loss_active = F.binary_cross_entropy_with_logits(pred_active.view(-1), src['active'].view(-1))
-#             loss_date = F.mse_loss(pred_date.view(-1, 3), src['date'].view(-1, 3))
-#             loss = loss_name + loss_price + loss_active + loss_date
-            
-#             loss.backward()
-#             optimizer.step()
-
-#         print(f'Epoch {epoch+1}/{epochs}, Loss: {loss.item()}')
-
-# def predict(model, data, loops=2):
-#     model.eval()
-#     with torch.no_grad():
-#         for loop in range(loops):
-#             for row in data:
-#                 src = {k: torch.stack([row[k] for _ in range(3)]) for k in row}
-#                 tgt = src
-#                 pred_name, pred_price, pred_active, pred_date = model(src, tgt)
-                
-#                 decoded_name = decode_string(pred_name.argmax(dim=-1)[0])
-#                 decoded_price = decode_number(pred_price[0])
-#                 decoded_active = decode_boolean(pred_active[0])
-#                 decoded_date = decode_date(pred_date[0])
-                
-#                 print(f'Prediction {loop+1}: Name={decoded_name}, Price={decoded_price}, Active={decoded_active}, Date={decoded_date}')
-
-# # Running the training and prediction loops
-# train(model, sample_data, epochs=10)
-# predict(model, sample_data, loops=2)
