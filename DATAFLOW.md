@@ -2,7 +2,33 @@
 
 ## Summary
 
-Each data type travels through the same general architecture, with variations in the initial encoding and final decoding. The embeddings allow the model to work with data of different types in a unified format, and the transformer layers capture relationships between data points. The output layers ensure that the model's predictions align with the expected data type and dimensionality, and the decoding process translates these predictions back into human-readable or usable forms.
+In general this model today predicts that given a source of A and target of B, it will predict the outcome of A to turn into B.
+
+For example:
+
+```python
+A = [
+    {"AAA_stock_price":122, "BBB_stock_price":200},
+    {"AAA_stock_price":124, "BBB_stock_price":600},
+]
+B = [
+    {"AAA_stock_price":124, "BBB_stock_price":600},
+    {"AAA_stock_price":127, "BBB_stock_price":1000},
+]
+```
+
+In this instance, we are setting up the model to predict the future value illustrated here:
+
+```python
+{"AAA_stock_price":122, "BBB_stock_price":200}
+--->{"AAA_stock_price":124, "BBB_stock_price":600}
+------>{"AAA_stock_price":127, "BBB_stock_price":1000}
+---------> ???
+```
+
+ASRO operates on the idea that you can align time series data for prediction on next value given N datatypes in an object.
+
+Each data type travels through the same general architecture, with variations in the initial encoding and final decoding. The embeddings allow the model to work with data of different types in a unified format, and the transformer layers capture relationships between data points. The output layers ensure that the model"s predictions align with the expected data type and dimensionality, and the decoding process translates these predictions back into human-readable or usable forms.
 
 ### Each datatype has covers these sections:
 
