@@ -75,7 +75,39 @@ Date -> [[0.4, 0.5, 0.3, 0.2], [0.1, 0.1, 0.2, 0.3], [0.3, 0.2, 0.4, 0.6]]
 True -> [[1.0, 0.9, 0.8, 0.7]]
 ```
 
+These are then concatenated together, and projected back to a dimension of the Embedding Dimension (d_model). <br></br>
+This is done to form more complex relations between each key in the input.
+
+```text
++--------------------------------------------------------------------------------------+
+|                                    Concatenation                                     |
+|                                                                                      |
+|  "abc" Embedding   +  99 Embedding  +  Date Embedding  +  "dog" Embedding  +  True   |
+|                                                                                      |
+|  Concatenated: [[e1, e2, e3, e0, e99, ed1, ed2, ed3, edog, etrue]]                   |
+|                                                                                      |
+|  Shape: (Batch Size, Sequence Length, Total Embedding Dimension)                     |
++--------------------------------------------------------------------------------------+
+```
+
+```text
++--------------------------------------------------------------------------------------+
+|                               Projection Back to d_model                            |
+|                                                                                      |
+|  Linear Layer (Projects Total Embedding Dimension -> d_model)                        |
+|                                                                                      |
+|  Input: [[e1, e2, e3, e0, e99, ed1, ed2, ed3, edog, etrue]]                           |
+|                                                                                      |
+|  Projected: [[p1, p2, p3, ..., pd]]                                                  |
+|                                                                                      |
+|  Shape: (Batch Size, Sequence Length, d_model)                                       |
++--------------------------------------------------------------------------------------+
+
+```
+
 # 3. Positional Encoding
+
+Positional encoding is added to the projected embeddings to introduce information about the order of the sequence. This helps the model understand the relative position of each element.
 
 ```
 +----------------------------------------------+
@@ -93,6 +125,8 @@ True -> [[1.0, 0.9, 0.8, 0.7]]
 ```
 
 # 4. Transformer
+
+Now that the data is ready for the transformer, we'll pass it through it.
 
 Self-Attention
 
