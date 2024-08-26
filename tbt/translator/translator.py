@@ -2,7 +2,8 @@ from collections import Counter
 import torch
 from typing import Dict, Union, Literal, Any, List
 import datetime
-
+import re
+import math
     
 class Translator:
     def __init__(self, datatype: Literal["float", "int", "date", "string", "category", "boolean"], info: Any = {}):
@@ -70,14 +71,33 @@ class Translator:
     def encode_boolean_as_float(self, value: bool) -> torch.Tensor:
         return torch.tensor([1.0 if value else 0.0], dtype=torch.float)
     
-    def encode_date(self, value: Union[str, datetime.date], date_pattern:str) -> torch.Tensor:
-
+    def encode_date(self, value: Union[str, datetime.date], date_pattern: str) -> torch.Tensor:
+        # If the input is a string, extract year, month, and day manually
         if isinstance(value, str):
-            value = datetime.datetime.strptime(value, date_pattern).date()
-        year = value.year / 1000.0  # Normalize year to [-1, 1]
-        month = (value.month - 1) / 11.0  # Normalize month to [0, 1]
-        day = (value.day - 1) / 30.0  # Normalize day to [0, 1]
-        return torch.tensor([year, month, day], dtype=torch.float)
+            # Extract year, month, day manually to handle negative years
+            match = re.match(r"(\d{1,2})/(\d{1,2})/(-?\d+)", value)
+            if not match:
+                raise ValueError(f"Date string '{value}' does not match expected format.")
+
+            month, day, year = map(int, match.groups())
+        else:
+            # If the input is a datetime.date object, extract its components
+            year, month, day = value.year, value.month, value.day
+
+        # Normalize month and day
+        month_normalized = (month - 1) / 11.0  # Normalize month to [0, 1]. Max 12 months
+        day_normalized = (day - 1) / 30.0  # Normalize day to [0, 1]. Max 31 days
+
+        # Logarithmic transformation for the year
+        if year == 0:
+            year_normalized = 0.0
+        elif year > 0:
+            year_normalized = math.log1p(year)  # Logarithmic scale for positive years
+        else:
+            year_normalized = -math.log1p(abs(year))  # Logarithmic scale for negative years
+
+        # Return the normalized tensor
+        return torch.tensor([year_normalized, 11 if month_normalized > 11 else month_normalized, 31 if day_normalized > 31 else day_normalized], dtype=torch.float)
 
     
     def encode_category(self, value: str, category_map: Dict[str, int]) -> torch.Tensor:
