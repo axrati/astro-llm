@@ -1,5 +1,8 @@
 from tbt.trainer.trainer import Trainer
 from tbt.model.model import DataTransformerModel
+import torch.nn.functional as F
+import torch
+import sys
 
 class CLI:
     def __init__(self, model:DataTransformerModel,trainer:Trainer):
@@ -11,15 +14,18 @@ class CLI:
         while cont:
             if user_input=="exit":
                 cont=False
-                break
+                sys.exit()
             elif user_input=="help":
                 self.help()
             elif user_input=="train":
                 loops = int(input("# How many loops would you like to do? (#): "))
                 self.trainer.train(loops)
+                print("\n")
+                print("Please enter a new command.")
             elif user_input=="generate":
                 count = int(input("# Number of records: "))
-                return self.generate(count)
+                temp = float(input("# Temperature: "))
+                self.generate(count, temp)
             else:
                 a=0
                 # print(user_input)
@@ -35,7 +41,7 @@ class CLI:
         user_input = input("# ")
         self.run(user_input)        
 
-    def generate(self, number):
+    def generate(self, number, temperature):
         # Get the last index source/target from Trainer data and use that
         source = self.trainer.source[len(self.trainer.source)-1]
         target = self.trainer.target[len(self.trainer.target)-1]
@@ -45,15 +51,16 @@ class CLI:
             for i in output:
                 print(i)
         return output
-    def generate_sequence(self, model, initial_target, source, N):
-        target = initial_target
+    def generate_sequence(self, model, initial_target, source, N, temperature=1.0):
+        current_output = source
+        previous_output = initial_target
         generated_sequence = []
         self.model.eval()
         for _ in range(N):
             # Step 1: Generate output using the current target
             # if isinstance(target,dict):
             #     target = [target]
-            output = model([source], [target]) 
+            output = model([current_output], [previous_output]) 
             # Step 2: Decode the output to get predictions
             predictions = model.decode_output(output)
             original_prediction = predictions['original']
@@ -61,9 +68,10 @@ class CLI:
             generated_sequence.append(original_prediction)
             # Step 3: Update the target with the new predictions
             # Here, we need to format the predictions to be used as the next target
-            target = {key: original_prediction[key] for key in original_prediction.keys()}
+            current_output = previous_output
+            previous_output = {key: original_prediction[key] for key in original_prediction.keys()}
         return generated_sequence
-    
+
 
     def help(self):
         print("""

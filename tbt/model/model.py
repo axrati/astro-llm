@@ -12,10 +12,8 @@ from typing import Dict, Any, List
 from tbt.config.config import ModelConfig
 from tbt.utils.utils import stringdate
 
+
 class PositionalEncoding(nn.Module):
-    """
-    Max len here is the context window size
-    """
     def __init__(self, d_model, max_len):
         super(PositionalEncoding, self).__init__()
         pe = torch.zeros(max_len, d_model)
@@ -30,13 +28,12 @@ class PositionalEncoding(nn.Module):
         x = x + self.pe[:x.size(0), :]
         return x
 
-# Data transformer    
 class DataTransformerModel(nn.Module):
-    def __init__(self, config:ModelConfig, d_model=64, nhead=4, num_encoder_layers=3, num_decoder_layers=3, dim_feedforward=256, dropout=0.1, max_len=5000, output_scale=1.0):
+    def __init__(self, config, d_model=64, nhead=4, num_encoder_layers=3, num_decoder_layers=3, dim_feedforward=256, dropout=0.1, max_len=5000, output_scale=1.0):
         super(DataTransformerModel, self).__init__()
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         self.config = config
-        self.output_scale = output_scale  # Scaling factor for numeric outputs
+        self.output_scale = output_scale
 
         # Embedding layers dictionary
         self.embeddings = nn.ModuleDict()
@@ -55,46 +52,45 @@ class DataTransformerModel(nn.Module):
             key: self._get_output_layer(layer, d_model) for key, layer in config.layers.items()
         })
 
+        # Embedding linear layers for each input type
         for key, layer in config.layers.items():
-            # Create embedding linear layer
-            self.embeddings[key] = nn.Linear(layer.embedding_dim, d_model)
-        # Move whole model to appropriate device
+            self.embeddings[key] = nn.Linear(layer.embedding_dim, layer.embedding_dim)
+        
+        # New layer to project concatenated embeddings back to `d_model` size
+        total_embedding_dim = sum(layer.embedding_dim for layer in config.layers.values())
+        self.concat_projection = nn.Linear(total_embedding_dim, d_model)
+        
+        # Move the entire model to the appropriate device
         self.to(self.device)
 
     def _get_output_layer(self, layer, d_model):
-        """ Return the appropriate output layer based on the data type. """
         if layer.datatype == "boolean":
-            return nn.Linear(d_model, 2)  # Two outputs: one for False, one for True
+            return nn.Linear(d_model, 2)
         elif layer.datatype == "int":
-            return nn.Linear(d_model, 1)  # Output a single value
+            return nn.Linear(d_model, 1)
         elif layer.datatype == "float":
-            return nn.Linear(d_model, 1)  # Output a single float value
+            return nn.Linear(d_model, 1)
         elif layer.datatype == "string":
-            return nn.Linear(d_model, layer.total_characters * layer.max_len)  # Output logits for each character in the sequence
+            return nn.Linear(d_model, layer.total_characters * layer.max_len)
         elif layer.datatype == "date":
-            return nn.Linear(d_model, 3)  # 3 outputs for year, month, day
+            return nn.Linear(d_model, 3)
         elif layer.datatype == "category":
-            return nn.Linear(d_model, len(layer.values))  # Output logits for each category
+            return nn.Linear(d_model, len(layer.values))
         else:
-            return nn.Linear(d_model, layer.embedding_dim)  # Default for other types
-
-
+            return nn.Linear(d_model, layer.embedding_dim)
 
     def forward(self, src: List[Dict[str, Any]], tgt: List[Dict[str, Any]]) -> Dict[str, torch.Tensor]:
-        """ Forward pass through the model, combined embeddings for all layers. """
-        
-        # Initialize combined embeddings for source and target
-        combined_src_embedded = None
-        combined_tgt_embedded = None
+        # Initialize list to hold all embeddings for concatenation
+        src_embeddings = []
+        tgt_embeddings = []
 
         for key, layer in self.config.layers.items():
             try:
-                # Check if obj[key] is giving the right result
-                if layer.datatype=="date":
-                    encoded_src = torch.stack([layer.encode(obj[key], layer.date_pattern).float().to(self.device) for obj in src])  # Shape: (batch_size, seq_len, embedding_dim)
+                if layer.datatype == "date":
+                    encoded_src = torch.stack([layer.encode(obj[key], layer.date_pattern).float().to(self.device) for obj in src])
                     encoded_tgt = torch.stack([layer.encode(obj[key], layer.date_pattern).float().to(self.device) for obj in tgt])
                 else:
-                    encoded_src = torch.stack([layer.encode(obj[key]).float().to(self.device) for obj in src])  # Shape: (batch_size, seq_len, embedding_dim)
+                    encoded_src = torch.stack([layer.encode(obj[key]).float().to(self.device) for obj in src])
                     encoded_tgt = torch.stack([layer.encode(obj[key]).float().to(self.device) for obj in tgt])
             except Exception as e:
                 print(f"Error processing key: {key} with error: {str(e)}")
@@ -102,17 +98,19 @@ class DataTransformerModel(nn.Module):
                 print(f"Target data for key: {tgt}")
                 raise e
 
-            # Pass through embedding layers
-            src_embedded = self.embeddings[key](encoded_src)  # Shape: (batch_size, seq_len, d_model)
+            # Get the embeddings and add them to the list for concatenation
+            src_embedded = self.embeddings[key](encoded_src)  # Shape: (batch_size, seq_len, layer.embedding_dim)
             tgt_embedded = self.embeddings[key](encoded_tgt)
+            src_embeddings.append(src_embedded)
+            tgt_embeddings.append(tgt_embedded)
 
-            # Combine the embeddings across all layers
-            if combined_src_embedded is None:
-                combined_src_embedded = src_embedded
-                combined_tgt_embedded = tgt_embedded
-            else:
-                combined_src_embedded += src_embedded
-                combined_tgt_embedded += tgt_embedded
+        # Concatenate all embeddings along the feature dimension
+        combined_src_embedded = torch.cat(src_embeddings, dim=-1)  # Shape: (batch_size, seq_len, total_embedding_dim)
+        combined_tgt_embedded = torch.cat(tgt_embeddings, dim=-1)  # Shape: (batch_size, seq_len, total_embedding_dim)
+
+        # Project concatenated embeddings back to `d_model` size
+        combined_src_embedded = self.concat_projection(combined_src_embedded)  # Shape: (batch_size, seq_len, d_model)
+        combined_tgt_embedded = self.concat_projection(combined_tgt_embedded)  # Shape: (batch_size, seq_len, d_model)
 
         # Apply positional encoding
         combined_src_embedded = self.positional_encoding(combined_src_embedded)
@@ -126,11 +124,8 @@ class DataTransformerModel(nn.Module):
         results = {}
         for key in self.config.layers.keys():
             layer_output = self.output_layers[key](output)
-
-            # Scale the output for numeric types
             if self.config.layers[key].datatype in ['int', 'float']:
                 layer_output = layer_output * self.config.layers[key].normalizer
-
             results[key] = layer_output
 
         return results
