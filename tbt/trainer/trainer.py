@@ -29,8 +29,8 @@ class Trainer:
 
         optimizer = optim.Adam(self.model.parameters(), lr=0.001)
         scaler = torch.cuda.amp.GradScaler() # Use Automatic Mixed Precision for efficiency
+        self.model.train()
         for epoch in range(epochs):
-            self.model.train()
             total_loss = 0
             optimizer.zero_grad()
             output = self.model(self.source, self.target)
@@ -41,9 +41,12 @@ class Trainer:
                 target_tensor = self.get_target_tensor(self.target, key, datatype, self.config.layers[key]).to(self.device)
                 loss += self.compute_loss(output[key], target_tensor, datatype, self.config.layers[key])
 
-            # Backward pass
-            loss.backward()
-            optimizer.step()
+            # Backward pass using the scaler
+            scaler.scale(loss).backward()
+            # Optimizer step using the scaler
+            scaler.step(optimizer)
+            # Update the scaler for the next iteration
+            scaler.update()
 
             total_loss += loss.item()
             print("                                          ", end="\r")
