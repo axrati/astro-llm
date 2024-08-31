@@ -1,0 +1,4 @@
+# tbt
+torch
+setuptools
+python-dotenv
