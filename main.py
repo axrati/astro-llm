@@ -17,7 +17,7 @@ config = ModelConfig()
 # config.boolean("valid")
 # config.category("bucket", values=["a","b","c"])
 # config.string("name",max_len=30,character_set=['a','b','c','d','e','f','g'])
-
+# config.date("date","%m-%d-%Y")
 
 
 config.date("defect_date",'%m/%d/%Y')

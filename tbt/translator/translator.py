@@ -4,6 +4,7 @@ from typing import Dict, Union, Literal, Any, List
 import datetime
 import re
 import math
+from tbt.translator.utils import get_year_date_month
     
 class Translator:
     def __init__(self, datatype: Literal["float", "int", "date", "string", "category", "boolean"], info: Any = {}):
@@ -73,13 +74,17 @@ class Translator:
     
     def encode_date(self, value: Union[str, datetime.date], date_pattern: str) -> torch.Tensor:
         # If the input is a string, extract year, month, and day manually
+        ## Need to patch for removing `/` and use date_pattern supplied
         if isinstance(value, str):
             # Extract year, month, day manually to handle negative years
-            match = re.match(r"(\d{1,2})/(\d{1,2})/(-?\d+)", value)
-            if not match:
+            # match = re.match(r"(\d{1,2})/(\d{1,2})/(-?\d+)", value)
+            date_obj = get_year_date_month(value,date_pattern)
+            if not date_obj:
                 raise ValueError(f"Date string '{value}' does not match expected format.")
-
-            month, day, year = map(int, match.groups())
+            year = date_obj['year']
+            month = date_obj['month']
+            day = date_obj['day']            
+            # month, day, year = map(int, match.groups())
         else:
             # If the input is a datetime.date object, extract its components
             year, month, day = value.year, value.month, value.day

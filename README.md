@@ -1,6 +1,6 @@
 # ASTRO Transformers
 
-### Adaptive Structured Transformation and Representation Output (ASTRO)
+### Adaptive Structure Transformation and Representation Output (ASTRO)
 
 This neural network model is a specialized data transformer designed to process JSON-like data with multiple data types, such as strings, integers, floats, dates, booleans, and categorical data. The model’s flexibility and modularity make it highly advanced, enabling it to handle diverse data types in a unified architecture while preserving the contextual relationships between data elements.
 
