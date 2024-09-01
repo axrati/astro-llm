@@ -3,7 +3,7 @@ import time
 import datetime
 import os
 from dotenv import load_dotenv
-from utils.api import fetch_data
+from tbt.alpha_vantage.utils.api import fetch_data
 
 """
 Data from API looks like:
@@ -20,7 +20,7 @@ Data from API looks like:
 }
 """
 
-env_path = "../.env"
+env_path = ".env"
 load_dotenv(env_path)
 api_key = os.getenv("ALPHA_VANTAGE_API_KEY")
 base_url = "https://www.alphavantage.co/query"

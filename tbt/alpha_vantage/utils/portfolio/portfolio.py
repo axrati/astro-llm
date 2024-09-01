@@ -1,10 +1,10 @@
 
 
-from utils.stock.stock import Stock
-from utils.federal_fund_rate.federal_fund_rate import FederalFundRate
+from tbt.alpha_vantage.utils.stock.stock import Stock
+from tbt.alpha_vantage.utils.federal_fund_rate.federal_fund_rate import FederalFundRate
 import time
 from typing import Dict, Literal, TypedDict, Any
-from utils.data_linting import prepare_data
+from tbt.alpha_vantage.utils.data_linting import prepare_data
 
 # Define the allowed value types
 allowed_key_types = Literal["float", "int", "date", "string", "category", "boolean"]
@@ -34,6 +34,13 @@ Portfolios can contain:
         self.federal_fund_rate:FederalFundRate|None = None
         self.model_data:ModelData = {"source":[], "target":[]}
         self.model_keys:list[Dict[str, allowed_key_types]] = []
+        self.key_map = {
+            "open":{"type":"float"},
+            "high":{"type":"float"},
+            "low":{"type":"float"},
+            "close":{"type":"float"},
+            "volume":{"type":"float"}
+        }
         if federal:
             self.federal_fund_rate = FederalFundRate()
 
@@ -96,4 +103,4 @@ Portfolios can contain:
             self.model_data = prepared_data['data']
             self.model_keys = prepared_data['model_keys']
         print("Generation complete")
-            
+    

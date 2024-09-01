@@ -1,3 +1,16 @@
+"""
+
+This is largely a test file for alpha_vantage elements like:
+
+Portfolio
+Stock
+FederalFundRate
+data_linter
+All AlphaVantage API calls
+
+"""
+
+
 import json
 from utils.stock.stock import Stock
 from utils.portfolio.portfolio import Portfolio

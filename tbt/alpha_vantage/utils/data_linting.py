@@ -12,10 +12,10 @@ Metadata will be a dict of additional daily attibutes. ie:  {..., "federa_fund_r
 
 """
 
-from utils.stock.stock import Stock
+from tbt.alpha_vantage.utils.stock.stock import Stock
 import datetime
 from typing import Dict, Literal, TypedDict, Any, List
-from utils.user_input import get_boolean_from_user
+from tbt.alpha_vantage.utils.user_input import get_boolean_from_user
 import traceback
 
 class AssetData(TypedDict):

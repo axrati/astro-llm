@@ -4,14 +4,25 @@ from tbt.trainer.trainer import Trainer
 from tbt.cli.cli import CLI
 import json
 import string
+from tbt.alpha_vantage.prebuilt_portfolios.energy_portfolio import EnergyPortfolio
+from tbt.alpha_vantage.prebuilt_portfolios.health_insurance_portfolio import HealthInsurancePortfolio
 
+p = HealthInsurancePortfolio()
+p.initialize()
+p.generate()
+
+# Determine config for model
 config = ModelConfig()
-config.int("age",50)
-config.float("grade",2)
-config.boolean("valid")
-config.category("bucket", values=["a","b","c"])
-config.string("name",max_len=30,character_set=['a','b','c','d','e','f','g'])
-config.date("date","%m-%d-%Y")
+config.date("date","%Y-%m-%d")
+for key in list(p.key_map.keys()):
+    keymap = p.key_map[key]
+    for name in p.stocknames:
+        value = f"{name}_{key}"
+        if keymap['type']=="float":
+            config.float(value,50)
+    if p.federal_fund_rate:
+        config.float("federal_fund_rate_value",10)
+
 
 model = DataTransformerModel(
     config=config,
@@ -25,29 +36,17 @@ model = DataTransformerModel(
     output_scale=1.0
 )
 
-source = [
-    {"age":21,"valid": False, "bucket":"a", "grade":1.6, "name":"abd", "date":"01-02-1995"},
-    {"age":22,"valid": True, "bucket":"b", "grade":1.3, "name":"bda", "date":"01-02-1995"},
-    {"age":25,"valid": False, "bucket":"c", "grade":1.8, "name":"ddba", "date":"01-02-1995"},
-    {"age":22,"valid": True, "bucket":"b", "grade":1.3, "name":"bda", "date":"01-02-1995"},
-    {"age":25,"valid": False, "bucket":"c", "grade":1.8, "name":"ddba", "date":"01-02-1995"},
-]
+source = p.model_data['source'][0:5]
+target = p.model_data['target'][0:5]
 
-target = [
-    {"age":25,"valid": True, "bucket":"b", "grade":1.8, "name":"dba", "date":"01-02-1995"},
-    {"age":22,"valid": False, "bucket":"c", "grade":1.2, "name":"dddba", "date":"01-02-1995"},
-    {"age":21,"valid": True, "bucket":"a", "grade":1.1, "name":"babda", "date":"01-02-1995"},
-    {"age":22,"valid": True, "bucket":"b", "grade":1.3, "name":"bda", "date":"01-02-1995"},
-    {"age":25,"valid": False, "bucket":"c", "grade":1.8, "name":"ddba", "date":"01-02-1995"},
-]
 
 trainer = Trainer(model, config)
 trainer.add_data(source=source, target=target)
-trainer.train(epochs=10)
+trainer.train(epochs=1)
 
-output = model(source,target)
-predictions = model.decode_output(output)
-print(predictions['original'])
+# output = model(source,target)
+# predictions = model.decode_output(output)
+# print(predictions['original'])
 
 
 cli = CLI(model,trainer)

@@ -75,6 +75,10 @@ class Translator:
     def encode_date(self, value: Union[str, datetime.date], date_pattern: str) -> torch.Tensor:
         # If the input is a string, extract year, month, and day manually
         ## Need to patch for removing `/` and use date_pattern supplied
+        # print(value)
+        # print(date_pattern)
+        epsilon = 1e-8 # Small value to prevent division by zero
+
         if isinstance(value, str):
             # Extract year, month, day manually to handle negative years
             # match = re.match(r"(\d{1,2})/(\d{1,2})/(-?\d+)", value)
@@ -97,9 +101,9 @@ class Translator:
         if year == 0:
             year_normalized = 0.0
         elif year > 0:
-            year_normalized = math.log1p(year)  # Logarithmic scale for positive years
+            year_normalized = math.log1p(year + epsilon)  # Logarithmic scale for positive years
         else:
-            year_normalized = -math.log1p(abs(year))  # Logarithmic scale for negative years
+            year_normalized = -math.log1p(abs(year + epsilon))  # Logarithmic scale for negative years
 
         # Return the normalized tensor
         return torch.tensor([year_normalized, 11 if month_normalized > 11 else month_normalized, 31 if day_normalized > 31 else day_normalized], dtype=torch.float)
@@ -141,7 +145,9 @@ class Translator:
         decoded_dates = []
         
         for batch in tensor:
+            print(batch)
             for date_tensor in batch:
+                print(date_tensor)
                 # Extract and denormalize each component
                 year = int(date_tensor[0].item() * 1000)  # Assuming normalization to [-1, 1] range
                 month = int((date_tensor[1].item() * 11) + 1)  # Map to [1, 12]

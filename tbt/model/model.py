@@ -62,6 +62,15 @@ class DataTransformerModel(nn.Module):
         
         # Move the entire model to the appropriate device
         self.to(self.device)
+        # Initialize weights
+        self.apply(self.initialize_weights)
+
+    def initialize_weights(self, module):
+        if isinstance(module, nn.Linear):
+            if module.weight is not None:
+                nn.init.xavier_uniform_(module.weight)  # or use 'he' initialization if needed
+            if module.bias is not None:
+                nn.init.constant_(module.bias, 0)
 
     def _get_output_layer(self, layer, d_model):
         if layer.datatype == "boolean":
@@ -83,7 +92,7 @@ class DataTransformerModel(nn.Module):
         # Initialize list to hold all embeddings for concatenation
         src_embeddings = []
         tgt_embeddings = []
-
+        
         for key, layer in self.config.layers.items():
             try:
                 if layer.datatype == "date":
