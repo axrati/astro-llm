@@ -1,4 +1,4 @@
-import requests
+import json
 from utils.stock.stock import Stock
 from utils.portfolio.portfolio import Portfolio
 from utils.federal_fund_rate.federal_fund_rate import FederalFundRate
@@ -15,4 +15,8 @@ from prebuilt_portfolios.energy_portfolio import EnergyPortfolio
 
 e_port = EnergyPortfolio()
 e_port.initialize()
+e_port.generate()
 
+# f = open("test.json","w")
+# f.write(json.dumps(e_port.model_data))
+# f.close()

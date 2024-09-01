@@ -47,6 +47,8 @@ class FederalFundRate:
     def __init__(self):
         self.data = []
         self.name = "federal_fund_rate"
+        self.min_date:datetime.datetime|None = None
+        self.max_date:datetime.datetime|None = None
     
     def get(self):
         """
@@ -78,6 +80,7 @@ class FederalFundRate:
         for item in daily_data:
             interval+=1
             print(f"Processing {self.name} - {interval}/{total_intervals}", end="\r")
+            # Parse important info
             date_formatted = datetime.datetime.strptime(item['date'], "%Y-%m-%d")
             value = item['value']
             cleaned_data = {
@@ -86,6 +89,15 @@ class FederalFundRate:
                 "day": date_formatted.day,
                 "value":float(value)
             }
+            # Manage min/max
+            if self.max_date is None or self.min_date is None:
+                self.max_date = date_formatted
+                self.min_date = date_formatted
+            if date_formatted > self.max_date:
+                self.max_date = date_formatted
+            if date_formatted < self.min_date:
+                self.min_date = date_formatted
+            # Add to base
             self.data.append(cleaned_data)
         print("Completed federal fund rate pull.")
     

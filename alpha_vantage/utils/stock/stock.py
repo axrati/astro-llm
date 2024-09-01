@@ -25,6 +25,7 @@ import time
 import datetime
 import os
 from dotenv import load_dotenv
+
 from utils.api import fetch_data
 
 env_path = "../.env"
@@ -36,6 +37,8 @@ base_url = "https://www.alphavantage.co/query"
 
 class Stock:
     """A stock is an instantiation of a stock data puller/setter.
+
+    Has a min_date/max_date property for its price range.
 
     You can pull data from the API fresh with get().
 
@@ -61,7 +64,8 @@ class Stock:
         self.name = name
         self.ticker = ticker
         self.data = []
-
+        self.max_date:datetime.datetime|None = None
+        self.min_date:datetime.datetime|None = None
 
             
     def get(self):
@@ -101,6 +105,7 @@ class Stock:
             interval+=1
             print(f"Processing {self.name} ({self.ticker}) - {interval}/{total_intervals}", end="\r")
             try:
+                # Parse important info
                 date_formatted = datetime.datetime.strptime(stringdate, "%Y-%m-%d")
                 date_info = daily_data[stringdate]
                 cleaned_data = {
@@ -113,6 +118,15 @@ class Stock:
                     "close":float(date_info['4. close']),
                     "volume":int(date_info['5. volume'])
                 }
+                # Manage stock min/max
+                if self.max_date is None or self.min_date is None:
+                    self.max_date = date_formatted
+                    self.min_date = date_formatted
+                if date_formatted > self.max_date:
+                    self.max_date = date_formatted
+                if date_formatted < self.min_date:
+                    self.min_date = date_formatted
+                # Add to class
                 self.data.append(cleaned_data)
             except Exception as e:
                 print(f"ERROR - failed parsing data {interval}/{total_intervals}")

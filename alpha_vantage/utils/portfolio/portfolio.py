@@ -4,6 +4,7 @@ from utils.stock.stock import Stock
 from utils.federal_fund_rate.federal_fund_rate import FederalFundRate
 import time
 from typing import Dict, Literal, TypedDict, Any
+from utils.data_linting import prepare_data
 
 # Define the allowed value types
 allowed_key_types = Literal["float", "int", "date", "string", "category", "boolean"]
@@ -40,9 +41,12 @@ Portfolios can contain:
         """
         Adds a stock to the portfolio.
         """
-        if stock.name not in self.stocks:
+        if stock.name not in self.stocks and stock.name != "federal_fund_rate":
             self.stocknames.append(stock.name)
             self.stocks.append(stock)
+        else:
+            print("Couldnt add stock. It either exists or is using reserved name.")
+            print("Current reserved names: federal_fund_rate")
 
     def remove(self,name):
         """
@@ -75,12 +79,21 @@ Portfolios can contain:
             self.federal_fund_rate.get()
         print("\nInitalization complete for portfolio.")
 
-    def prepare_data(self):
+    def generate(self):
         """
-        A function to organize the data into "source" and "target" form.
+        This sets the portfolio's `model_data` and `model_keys` information.
 
-        Sets self.model_data = {"source":[...], "target":[...]}.
-        Sets self.model_keys = {"keyname":"keydatatype"}
+        `model_data` = {"source":[], "target":[]} formation
+        `model_keys` = [...,"date"] which has each row's keyable info
         """
-        # Anticipation is that each stock & 
-        return 1
+        print("Starting generation...")
+        if self.federal_fund_rate:
+            prepared_data = prepare_data(self.stocks, {"federal_fund_rate":{"data":self.federal_fund_rate.data, "keys":["value"], "item":self.federal_fund_rate}})
+            self.model_data = prepared_data['data']
+            self.model_keys = prepared_data['model_keys']
+        else:
+            prepared_data = prepare_data(self.stocks)
+            self.model_data = prepared_data['data']
+            self.model_keys = prepared_data['model_keys']
+        print("Generation complete")
+            
