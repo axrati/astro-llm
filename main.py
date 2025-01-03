@@ -7,9 +7,9 @@ import string
 from tbt.alpha_vantage.prebuilt_portfolios.energy_portfolio import EnergyPortfolio
 from tbt.alpha_vantage.prebuilt_portfolios.health_insurance_portfolio import HealthInsurancePortfolio
 
-p = HealthInsurancePortfolio()
-p.initialize()
-p.generate()
+# p = HealthInsurancePortfolio()
+# p.initialize()
+# p.generate()
 
 # Determine config for model
 config = ModelConfig()

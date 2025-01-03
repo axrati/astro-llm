@@ -18,18 +18,32 @@ class PositionalEncoding(nn.Module):
         super(PositionalEncoding, self).__init__()
         pe = torch.zeros(max_len, d_model)
         position = torch.arange(0, max_len, dtype=torch.float).unsqueeze(1)
-        div_term = torch.exp(torch.arange(0, d_model, 2).float() * (-math.log(10000.0) / d_model))
+        div_term = torch.exp(
+            torch.arange(0, d_model, 2).float() * (-math.log(10000.0) / d_model)
+        )
         pe[:, 0::2] = torch.sin(position * div_term)
         pe[:, 1::2] = torch.cos(position * div_term)
         pe = pe.unsqueeze(0).transpose(0, 1)
-        self.register_buffer('pe', pe)
-    
+        self.register_buffer("pe", pe)
+
     def forward(self, x):
-        x = x + self.pe[:x.size(0), :]
+        x = x + self.pe[: x.size(0), :]
         return x
 
+
 class DataTransformerModel(nn.Module):
-    def __init__(self, config, d_model=64, nhead=4, num_encoder_layers=3, num_decoder_layers=3, dim_feedforward=256, dropout=0.1, max_len=5000, output_scale=1.0):
+    def __init__(
+        self,
+        config,
+        d_model=64,
+        nhead=4,
+        num_encoder_layers=3,
+        num_decoder_layers=3,
+        dim_feedforward=256,
+        dropout=0.1,
+        max_len=5000,
+        output_scale=1.0,
+    ):
         super(DataTransformerModel, self).__init__()
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         self.config = config
@@ -39,27 +53,48 @@ class DataTransformerModel(nn.Module):
         self.embeddings = nn.ModuleDict()
 
         # Shared Transformer model for all layers
-        encoder_layer = nn.TransformerEncoderLayer(d_model=d_model, nhead=nhead, dim_feedforward=dim_feedforward, dropout=dropout, batch_first=True)
-        self.encoder = nn.TransformerEncoder(encoder_layer, num_layers=num_encoder_layers)
+        encoder_layer = nn.TransformerEncoderLayer(
+            d_model=d_model,
+            nhead=nhead,
+            dim_feedforward=dim_feedforward,
+            dropout=dropout,
+            batch_first=True,
+        )
+        self.encoder = nn.TransformerEncoder(
+            encoder_layer, num_layers=num_encoder_layers
+        )
 
-        decoder_layer = nn.TransformerDecoderLayer(d_model=d_model, nhead=nhead, dim_feedforward=dim_feedforward, dropout=dropout, batch_first=True)
-        self.decoder = nn.TransformerDecoder(decoder_layer, num_layers=num_decoder_layers)
+        decoder_layer = nn.TransformerDecoderLayer(
+            d_model=d_model,
+            nhead=nhead,
+            dim_feedforward=dim_feedforward,
+            dropout=dropout,
+            batch_first=True,
+        )
+        self.decoder = nn.TransformerDecoder(
+            decoder_layer, num_layers=num_decoder_layers
+        )
 
         self.positional_encoding = PositionalEncoding(d_model, max_len=max_len)
 
         # Output layers for each key
-        self.output_layers = nn.ModuleDict({
-            key: self._get_output_layer(layer, d_model) for key, layer in config.layers.items()
-        })
+        self.output_layers = nn.ModuleDict(
+            {
+                key: self._get_output_layer(layer, d_model)
+                for key, layer in config.layers.items()
+            }
+        )
 
         # Embedding linear layers for each input type
         for key, layer in config.layers.items():
             self.embeddings[key] = nn.Linear(layer.embedding_dim, layer.embedding_dim)
-        
+
         # New layer to project concatenated embeddings back to `d_model` size
-        total_embedding_dim = sum(layer.embedding_dim for layer in config.layers.values())
+        total_embedding_dim = sum(
+            layer.embedding_dim for layer in config.layers.values()
+        )
         self.concat_projection = nn.Linear(total_embedding_dim, d_model)
-        
+
         # Move the entire model to the appropriate device
         self.to(self.device)
         # Initialize weights
@@ -68,7 +103,9 @@ class DataTransformerModel(nn.Module):
     def initialize_weights(self, module):
         if isinstance(module, nn.Linear):
             if module.weight is not None:
-                nn.init.xavier_uniform_(module.weight)  # or use 'he' initialization if needed
+                nn.init.xavier_uniform_(
+                    module.weight
+                )  # or use 'he' initialization if needed
             if module.bias is not None:
                 nn.init.constant_(module.bias, 0)
 
@@ -88,19 +125,39 @@ class DataTransformerModel(nn.Module):
         else:
             return nn.Linear(d_model, layer.embedding_dim)
 
-    def forward(self, src: List[Dict[str, Any]], tgt: List[Dict[str, Any]]) -> Dict[str, torch.Tensor]:
+    def forward(
+        self, src: List[Dict[str, Any]], tgt: List[Dict[str, Any]]
+    ) -> Dict[str, torch.Tensor]:
         # Initialize list to hold all embeddings for concatenation
         src_embeddings = []
         tgt_embeddings = []
-        
+
         for key, layer in self.config.layers.items():
             try:
                 if layer.datatype == "date":
-                    encoded_src = torch.stack([layer.encode(obj[key], layer.date_pattern).float().to(self.device) for obj in src])
-                    encoded_tgt = torch.stack([layer.encode(obj[key], layer.date_pattern).float().to(self.device) for obj in tgt])
+                    encoded_src = torch.stack(
+                        [
+                            layer.encode(obj[key], layer.date_pattern)
+                            .float()
+                            .to(self.device)
+                            for obj in src
+                        ]
+                    )
+                    encoded_tgt = torch.stack(
+                        [
+                            layer.encode(obj[key], layer.date_pattern)
+                            .float()
+                            .to(self.device)
+                            for obj in tgt
+                        ]
+                    )
                 else:
-                    encoded_src = torch.stack([layer.encode(obj[key]).float().to(self.device) for obj in src])
-                    encoded_tgt = torch.stack([layer.encode(obj[key]).float().to(self.device) for obj in tgt])
+                    encoded_src = torch.stack(
+                        [layer.encode(obj[key]).float().to(self.device) for obj in src]
+                    )
+                    encoded_tgt = torch.stack(
+                        [layer.encode(obj[key]).float().to(self.device) for obj in tgt]
+                    )
             except Exception as e:
                 print(f"Error processing key: {key} with error: {str(e)}")
                 print(f"Source data for key: {src}")
@@ -108,18 +165,28 @@ class DataTransformerModel(nn.Module):
                 raise e
 
             # Get the embeddings and add them to the list for concatenation
-            src_embedded = self.embeddings[key](encoded_src)  # Shape: (batch_size, seq_len, layer.embedding_dim)
+            src_embedded = self.embeddings[key](
+                encoded_src
+            )  # Shape: (batch_size, seq_len, layer.embedding_dim)
             tgt_embedded = self.embeddings[key](encoded_tgt)
             src_embeddings.append(src_embedded)
             tgt_embeddings.append(tgt_embedded)
 
         # Concatenate all embeddings along the feature dimension
-        combined_src_embedded = torch.cat(src_embeddings, dim=-1)  # Shape: (batch_size, seq_len, total_embedding_dim)
-        combined_tgt_embedded = torch.cat(tgt_embeddings, dim=-1)  # Shape: (batch_size, seq_len, total_embedding_dim)
+        combined_src_embedded = torch.cat(
+            src_embeddings, dim=-1
+        )  # Shape: (batch_size, seq_len, total_embedding_dim)
+        combined_tgt_embedded = torch.cat(
+            tgt_embeddings, dim=-1
+        )  # Shape: (batch_size, seq_len, total_embedding_dim)
 
         # Project concatenated embeddings back to `d_model` size
-        combined_src_embedded = self.concat_projection(combined_src_embedded)  # Shape: (batch_size, seq_len, d_model)
-        combined_tgt_embedded = self.concat_projection(combined_tgt_embedded)  # Shape: (batch_size, seq_len, d_model)
+        combined_src_embedded = self.concat_projection(
+            combined_src_embedded
+        )  # Shape: (batch_size, seq_len, d_model)
+        combined_tgt_embedded = self.concat_projection(
+            combined_tgt_embedded
+        )  # Shape: (batch_size, seq_len, d_model)
 
         # Apply positional encoding
         combined_src_embedded = self.positional_encoding(combined_src_embedded)
@@ -133,22 +200,21 @@ class DataTransformerModel(nn.Module):
         results = {}
         for key in self.config.layers.keys():
             layer_output = self.output_layers[key](output)
-            if self.config.layers[key].datatype in ['int', 'float']:
+            if self.config.layers[key].datatype in ["int", "float"]:
                 layer_output = layer_output * self.config.layers[key].normalizer
             results[key] = layer_output
 
         return results
 
     def entropy(self, probabilities: torch.Tensor) -> torch.Tensor:
-        """ Calculate the entropy of the probability distribution. """
+        """Calculate the entropy of the probability distribution."""
         return -torch.sum(probabilities * torch.log(probabilities + 1e-9), dim=-1)
 
-
     def decode_output(self, output: Dict[str, torch.Tensor]) -> Dict[str, Any]:
-        """ 
-        Decode the model's output back to human-readable form. 
+        """
+        Decode the model's output back to human-readable form.
         Outputs 2 different versions
-        
+
         "original": Represents the original data input
         "model"   : Represents an easier to parse version based on datatype (mostly date)
         """
@@ -159,10 +225,14 @@ class DataTransformerModel(nn.Module):
             if layer.datatype == "string":
                 # print("string")
                 # Reshape for view
-                reshaped_tensor = tensor.view(tensor.size(0), layer.max_len, -1, layer.total_characters)
+                reshaped_tensor = tensor.view(
+                    tensor.size(0), layer.max_len, -1, layer.total_characters
+                )
                 probabilities = F.softmax(reshaped_tensor, dim=-1)
                 averaged_probabilities = probabilities.mean(dim=2)
-                predicted_indices = torch.argmax(averaged_probabilities, dim=-1) # will be of shape [batch, max_len],
+                predicted_indices = torch.argmax(
+                    averaged_probabilities, dim=-1
+                )  # will be of shape [batch, max_len],
                 # Mode of results across the batch
                 mode_result, _ = torch.mode(predicted_indices, dim=0)
                 decoded = layer.decode(mode_result.tolist())
@@ -177,17 +247,20 @@ class DataTransformerModel(nn.Module):
                 average_entropy = torch.mean(entropy).item()
                 # Define a threshold for entropy. Lower threshold means more confident predictions.
                 entropy_threshold = 0.5  # This can be tuned
-                
+
                 if average_entropy < entropy_threshold:
                     # If entropy is low, rely on the highest probability
                     predicted_classes = torch.argmax(probabilities, dim=-1)
-                    final_result = predicted_classes.bool().mean().item() >= 0.5.item()
+                    final_result = predicted_classes.float().mean().item() >= 0.5
                 else:
                     # If entropy is high, fallback strategy (e.g., averaging the probabilities)
                     averaged_probabilities = probabilities.mean(dim=0)
-                    final_result = averaged_probabilities[0][1] > averaged_probabilities[0][0].item()
-                decoded_output[key] = final_result.item()
-                original_output[key] = final_result.item()
+                    final_result = (
+                        averaged_probabilities[0][1]
+                        > averaged_probabilities[0][0].item()
+                    )
+                decoded_output[key] = final_result
+                original_output[key] = final_result
             elif layer.datatype == "int":
                 # print("int")
                 decoded_output[key] = layer.decode(tensor)
@@ -212,22 +285,26 @@ class DataTransformerModel(nn.Module):
                     else:
                         counts[index] = 1
                 max_count = 0
-                right_enum_index = right_enum_list[0]  
+                right_enum_index = right_enum_list[0]
                 for index, count in counts.items():
                     if count > max_count:
                         max_count = count
                         right_enum_index = index
                 # print(f"Correct enum is {right_enum_index}")
-                decoded_output[key] = layer.decode(right_enum_index)  # Likelihood for each category
-                original_output[key] = layer.decode(right_enum_index)  # Likelihood for each category
+                decoded_output[key] = layer.decode(
+                    right_enum_index
+                )  # Likelihood for each category
+                original_output[key] = layer.decode(
+                    right_enum_index
+                )  # Likelihood for each category
             elif layer.datatype == "date":
                 decoded_output[key] = layer.decode(tensor)
-                original_output[key] = stringdate(layer.decode(tensor), layer.date_pattern)
+                original_output[key] = stringdate(
+                    layer.decode(tensor), layer.date_pattern
+                )
             else:
                 print("UNCAUGHT DATATYPE")
                 decoded_output[key] = layer.decode(tensor.squeeze(0))
                 original_output[key] = layer.decode(tensor.squeeze(0))
 
-        return {"original":original_output, "model":decoded_output}
-    
-    
+        return {"original": original_output, "model": decoded_output}
